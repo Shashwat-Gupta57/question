@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Bestie Court: Shashwat vs Apoorva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Space Grotesk', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom scrollbar for textareas */
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased selection:bg-rose-500 selection:text-white overflow-x-hidden">
+
+    <!-- Background Effects -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]"></div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="root" class="relative z-10 container mx-auto px-4 py-8 md:py-12 min-h-screen flex flex-col">
+        <!-- Content will be injected here by JS -->
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI, Type } from "@google/genai";
+
+        // --- CONFIGURATION ---
+        const API_KEY = "AIzaSyB058A0BQW4PRu0_Bp9q4rQEZvAIXB6zHI"; 
+        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        const MODEL_ID = 'gemini-3-flash-preview'; // Updated to valid model
+
+        // --- ICONS ---
+        const Icons = {
+            User: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+            Users: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+            Phone: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+            Instagram: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>`,
+            Question: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,
+            Gavel: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>`
+        };
+
+        // --- DATA ---
+        const shashwatStats = {
+            name: "Shashwat",
+            height: "5'8\"",
+            skinTone: "Fair",
+            role: "PCM + CS (11th)",
+            rank: "#4-5 (Almost Top)",
+            details: ["Software Dev (Java)", "2.8K+ LinkedIn Followers", "23+ Certifications", "5★ HackerRank (Java)", "Movie Buff 🎬"],
+            highlight: "Developed Prod-Level Apps 💻",
+            image: "https://picsum.photos/seed/shashwat/200/200"
+        };
+
+        const apoorvaStats = {
+            name: "Apoorva",
+            height: "5'5\"",
+            skinTone: "Dusky",
+            role: "PCM + Biotech (11th)",
+            rank: "School Topper 🏆",
+            details: ["Writes Journals ✍️", "Horse Riding 🏇", "Reads Books 📚", "Movie Hater 🚫", "10/10 Acting Skills 🎭"],
+            highlight: "Master Manipulator 😈",
+            image: "https://picsum.photos/seed/apoorva/200/200"
+        };
+
+        const CASES = [
+            {
+                id: 'case-gatekeeping',
+                title: 'The Gatekeeping Scandal',
+                description: "Shashwat has introduced 3-4 friends to Apoorva. Apoorva has introduced ZERO friends to Shashwat. She even hides her sister. Why is she gatekeeping her social circle?",
+                severity: 'CRITICAL',
+                context: "The user (Shashwat) is upset because he introduces his bestie (Apoorva) to everyone, but she hides him from her friends and even her sister. They've only met once due to different schools, but talk constantly on Instagram. Apoorva is a topper and manipulates situations."
+            },
+            {
+                id: 'case-insta-fraud',
+                title: 'The Instagram ID Fraud',
+                description: "Breach of Contract: We agreed to a mutual exchange of Instagram IDs. She tried to avoid it, and when she finally gave it, she changed the password mid-way to lock me out.",
+                severity: 'HIGH',
+                context: "Shashwat and Apoorva agreed to swap Instagram logins. Shashwat honored the deal. Apoorva hesitated, then gave the ID, but stealthily changed the password mid-way to revoke access. This is deceptive behavior."
+            },
+            {
+                id: 'case-privacy-breach',
+                title: 'The Spoiler Surveillance',
+                description: "Violation of Privacy: She reads my DMs with Rishika (another friend) and ruins her own surprises because I send drafts to Rishika for review first. This is an offense to my privacy.",
+                severity: 'HIGH',
+                context: "Shashwat plans surprises for Apoorva and sends drafts to their mutual friend Rishika for review. Apoorva snoops into Shashwat's DMs with Rishika, reads about the surprise, and ruins the moment. This violates Shashwat's privacy rights."
+            },
+            {
+                id: 'case-manipulation',
+                title: 'The Puppet Master',
+                description: "Psychological Manipulation: She manipulates me into doing things I don't want to—like giving up my ID or stopping my 'dalal harkate' (matchmaking) between her and Sarvagy.",
+                severity: 'CRITICAL',
+                context: "Apoorva uses her 10/10 acting skills to manipulate Shashwat. She forces him to give her his ID against his will and stops him from playfully matchmaking ('dalal harkate') her with their friend Sarvagy. Shashwat feels regretful and sad after being manipulated."
+            },
+            {
+                id: 'case-underwhelming-reaction',
+                title: 'The Appreciation Deficit',
+                description: "Emotional Damage: I spend 10-20 hours coding dedicated websites for her. Her reaction? A dry 'good' or 'cute'. This is insufficient compensation for the hard work.",
+                severity: 'MEDIUM',
+                context: "Shashwat is a developer who spends 10-20 hours building custom websites for Apoorva. Apoorva, being non-technical, gives very dry reactions like 'it's good' or 'cute', which hurts Shashwat's feelings as he expects more enthusiasm for his hard work."
+            },
+            {
+                id: 'case-physical-assault',
+                title: 'The Battery Charge',
+                description: "Physical Violence: She beats me whenever we meet. On our first and only meetup, she hit me 40+ times. I do not consent to this violence.",
+                severity: 'HIGH',
+                context: "Apoorva is physically aggressive. When they met for the first time, she hit/beat Shashwat 40+ times playfully but painfully. Shashwat hates this and wants it to stop."
+            }
+        ];
+
+        // --- STATE ---
+        let activeCaseId = null;
+
+        // --- COMPONENTS ---
+        
+        const renderProfileCard = (stats, align) => {
+            const isLeft = align === 'left';
+            const alignClass = isLeft ? 'items-start text-left' : 'items-end text-right';
+            const colorClass = isLeft ? 'text-blue-400' : 'text-rose-400';
+            const bgClass = isLeft ? 'bg-blue-600' : 'bg-rose-600';
+            const borderClass = isLeft ? 'text-blue-200' : 'text-rose-200';
+
+            const detailsHtml = stats.details.map(d => `
+                <li class="flex items-center gap-2">
+                    ${isLeft ? '<span class="w-1 h-1 rounded-full bg-blue-500"></span>' : ''}
+                    ${d}
+                    ${!isLeft ? '<span class="w-1 h-1 rounded-full bg-rose-500"></span>' : ''}
+                </li>
+            `).join('');
+
+            return `
+                <div class="flex flex-col ${isLeft ? 'items-start' : 'items-end'} w-full max-w-sm glass-panel p-6 rounded-2xl border-t border-white/10 shadow-2xl transition-transform hover:scale-105 duration-300">
+                    <div class="relative mb-4">
+                        <div class="absolute -inset-1 rounded-full blur opacity-50 ${bgClass}"></div>
+                        <img src="${stats.image}" alt="${stats.name}" class="relative w-28 h-28 rounded-full object-cover border-4 border-slate-900" />
+                    </div>
+                    <h3 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400 mb-1">${stats.name}</h3>
+                    <p class="text-xs font-bold uppercase tracking-widest mb-4 ${colorClass}">${stats.role}</p>
+                    <div class="w-full space-y-3 ${alignClass}">
+                        <div class="flex flex-col ${isLeft ? 'items-start' : 'items-end'}">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500">Stats</span>
+                            <span class="text-base text-slate-200 font-medium">${stats.height} • ${stats.skinTone}</span>
+                        </div>
+                        <div class="flex flex-col ${isLeft ? 'items-start' : 'items-end'}">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500">Rank</span>
+                            <span class="text-base text-slate-200 font-medium">${stats.rank}</span>
+                        </div>
+                        <div class="flex flex-col ${isLeft ? 'items-start' : 'items-end'} mt-2">
+                            <span class="text-xs uppercase tracking-wider text-slate-500 mb-1">Key Attributes</span>
+                            <ul class="text-sm text-slate-300 space-y-1 ${alignClass}">${detailsHtml}</ul>
+                        </div>
+                        <div class="mt-4 px-3 py-2 rounded bg-slate-800/50 border border-slate-700/50 text-xs ${borderClass}">
+                            ${stats.highlight}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderCaseCard = (c) => {
+            const colorMap = {
+                CRITICAL: 'text-red-500 border-red-500/50 bg-red-500/10',
+                HIGH: 'text-orange-500 border-orange-500/50 bg-orange-500/10',
+                MEDIUM: 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10',
+                LOW: 'text-blue-500 border-blue-500/50 bg-blue-500/10'
+            };
+            const severityClass = colorMap[c.severity] || colorMap.LOW;
+
+            return `
+                <div onclick="window.setActiveCase('${c.id}')" class="group cursor-pointer glass-panel p-6 rounded-xl border-l-4 border-l-slate-600 hover:border-l-purple-500 transition-all duration-300 hover:translate-y-[-4px]">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${severityClass}">
+                            ${c.severity} Priority
+                        </div>
+                        <div class="w-5 h-5 text-slate-600 group-hover:text-purple-400 transition-colors">${Icons.Gavel}</div>
+                    </div>
+                    <h3 class="text-xl font-bold text-slate-100 mb-2 group-hover:text-purple-300 transition-colors">${c.title}</h3>
+                    <p class="text-slate-400 text-sm mb-6 line-clamp-3">${c.description}</p>
+                    <div class="flex items-center text-xs font-mono text-slate-500">
+                        <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+                        COURT IN SESSION
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderEvidenceLog = () => `
+            <div class="w-full max-w-4xl mx-auto mb-16 animate-fade-in">
+                <h2 class="text-3xl font-bold text-center mb-12 text-slate-100 flex items-center justify-center gap-3">
+                    <span class="w-8 h-8 text-yellow-400">${Icons.Question}</span>
+                    The Friendship Audit Log
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="glass-panel p-6 rounded-xl border-l-4 border-blue-500">
+                        <h3 class="text-xl font-bold text-blue-400 mb-4">Shashwat's Contributions</h3>
+                        <ul class="space-y-4">
+                            <li class="flex items-center gap-3"><div class="bg-blue-500/20 p-2 rounded-full text-blue-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Introduced Apoorva to <strong class="text-white">3-4 friends</strong></span></li>
+                            <li class="flex items-center gap-3"><div class="bg-blue-500/20 p-2 rounded-full text-blue-300 w-9 h-9 flex items-center justify-center">${Icons.Instagram}</div><span class="text-slate-300">Shares memes consistently</span></li>
+                        </ul>
+                    </div>
+                    <div class="glass-panel p-6 rounded-xl border-l-4 border-rose-500 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-4 opacity-10 w-24 h-24">${Icons.Users}</div>
+                        <h3 class="text-xl font-bold text-rose-400 mb-4">Apoorva's "Gatekeeping"</h3>
+                        <ul class="space-y-4">
+                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Introduced Shashwat to: <strong class="text-rose-500">NO ONE</strong></span></li>
+                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Status of Sister: <strong class="text-rose-500">CLASSIFIED</strong></span></li>
+                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Phone}</div><span class="text-slate-300">Meetings: Only once</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // --- RENDER FUNCTIONS ---
+        
+        window.setActiveCase = (id) => {
+            activeCaseId = id;
+            renderApp();
+        };
+
+        window.submitExcuse = async () => {
+            const excuse = document.getElementById('excuseInput').value;
+            const btn = document.getElementById('submitBtn');
+            const resultArea = document.getElementById('resultArea');
+            const activeCase = CASES.find(c => c.id === activeCaseId);
+
+            if (!excuse.trim()) return;
+
+            btn.disabled = true;
+            btn.innerHTML = 'Deliberating...';
+            resultArea.innerHTML = '';
+
+            try {
+                const systemInstruction = `
+                    You are the Supreme Judge of Friendship. 
+                    Plaintiff: Shashwat Gupta (Java Dev, PCM+CS, 2.8K+ LinkedIn, 5* HackerRank, 5'8).
+                    Defendant: Apoorva Maurya (School Topper, PCM+Biotech, Horse Rider, 10/10 Acting Skills, 5'5).
+                    CASE CONTEXT: ${activeCase.context}
+                    Apoorva has just provided an excuse. Analyze it. She is manipulative.
+                `;
+
+                const response = await ai.models.generateContent({
+                    model: MODEL_ID,
+                    contents: `Apoorva's Statement: "${excuse}"`,
+                    config: {
+                        systemInstruction: systemInstruction,
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                verdict: { type: Type.STRING, enum: ["VALID", "SUSPICIOUS", "GUILTY"] },
+                                analysis: { type: Type.STRING },
+                                wittyComeback: { type: Type.STRING }
+                            },
+                            required: ["verdict", "analysis", "wittyComeback"]
+                        }
+                    }
+                });
+
+                const data = JSON.parse(response.text);
+                
+                const colorClass = data.verdict === 'VALID' ? 'border-green-500 bg-green-900/20' : 
+                                   data.verdict === 'SUSPICIOUS' ? 'border-yellow-500 bg-yellow-900/20' : 
+                                   'border-red-500 bg-red-900/20';
+                
+                const badgeClass = data.verdict === 'VALID' ? 'bg-green-500 text-black' : 
+                                   data.verdict === 'SUSPICIOUS' ? 'bg-yellow-500 text-black' : 
+                                   'bg-red-500 text-white';
+
+                resultArea.innerHTML = `
+                    <div class="animate-fade-in border-l-4 p-6 rounded-r-xl shadow-2xl ${colorClass} mt-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold uppercase tracking-widest text-white">Verdict</h3>
+                            <span class="px-3 py-1 rounded font-bold text-sm ${badgeClass}">${data.verdict}</span>
+                        </div>
+                        <p class="text-lg text-slate-200 mb-6 italic">"${data.analysis}"</p>
+                        <div class="bg-slate-950/50 p-4 rounded-lg">
+                            <p class="text-xs text-slate-500 uppercase font-bold mb-2">Recommended Reply:</p>
+                            <p class="text-purple-300 font-mono">"${data.wittyComeback}"</p>
+                        </div>
+                    </div>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                alert("The AI Judge is taking a recess (Error calling API). Check console for details.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Submit Defense';
+            }
+        };
+
+        const renderApp = () => {
+            const root = document.getElementById('root');
+            
+            if (activeCaseId) {
+                // CASE VIEW
+                const c = CASES.find(x => x.id === activeCaseId);
+                const colorMap = {
+                    CRITICAL: 'bg-red-500/20 text-red-400',
+                    HIGH: 'bg-orange-500/20 text-orange-400',
+                    MEDIUM: 'bg-yellow-500/20 text-yellow-400',
+                    LOW: 'bg-blue-500/20 text-blue-400'
+                };
+                
+                root.innerHTML = `
+                    <div class="animate-fade-in">
+                        <button onclick="window.setActiveCase(null)" class="mb-8 flex items-center gap-2 text-slate-400 hover:text-white transition-colors">← Back to Case Files</button>
+                        
+                        <div class="max-w-4xl mx-auto">
+                            <div class="border-b border-slate-800 pb-6 mb-8 text-center">
+                                <span class="inline-block px-3 py-1 rounded text-xs font-bold mb-3 uppercase tracking-wider ${colorMap[c.severity] || ''}">${c.severity} Priority Case</span>
+                                <h2 class="text-3xl md:text-5xl font-bold text-white mb-4">${c.title}</h2>
+                                <p class="text-slate-300 text-lg max-w-2xl mx-auto">${c.description}</p>
+                            </div>
+
+                            ${c.evidenceComponent ? renderEvidenceLog() : ''}
+
+                            <!-- JUDGE BOT -->
+                            <div class="w-full max-w-2xl mx-auto mb-20 px-4">
+                                <div class="text-center mb-8">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/20 mb-4 animate-bounce text-purple-400">${Icons.Gavel}</div>
+                                    <h2 class="text-3xl font-bold text-white mb-2">The AI Judge</h2>
+                                    <p class="text-slate-400">Apoorva, provide your justification for this specific incident.</p>
+                                </div>
+                                <div class="glass-panel p-1 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900">
+                                    <textarea id="excuseInput" placeholder="Type your excuse here..." class="w-full h-32 bg-slate-950/50 text-white p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-slate-600 border-none"></textarea>
+                                    <div class="p-2 flex justify-end">
+                                        <button id="submitBtn" onclick="window.submitExcuse()" class="px-6 py-2 rounded-lg font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-500/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">Submit Defense</button>
+                                    </div>
+                                </div>
+                                <div id="resultArea"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // DASHBOARD VIEW
+                root.innerHTML = `
+                    <div class="animate-fade-in">
+                        <header class="text-center mb-12">
+                            <h1 class="text-4xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-rose-400 cursor-pointer">The Bestie Court</h1>
+                            <p class="text-slate-400 mt-2 text-sm uppercase tracking-widest">Shashwat vs. Apoorva</p>
+                        </header>
+
+                        <div class="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-12 mb-20">
+                            ${renderProfileCard(shashwatStats, 'left')}
+                            <div class="flex flex-col items-center justify-center text-slate-500 font-mono text-xs md:text-sm shrink-0">
+                                <span class="h-16 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent mb-2"></span>
+                                <span class="bg-slate-900 px-2 py-1 rounded border border-slate-800">VS</span>
+                                <span class="h-16 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent mt-2"></span>
+                            </div>
+                            ${renderProfileCard(apoorvaStats, 'right')}
+                        </div>
+
+                        <div class="max-w-6xl mx-auto">
+                            <div class="flex items-center gap-4 mb-8">
+                                <div class="h-px bg-slate-800 flex-1"></div>
+                                <h3 class="text-xl font-bold text-slate-400 uppercase tracking-widest">Active Docket (${CASES.length})</h3>
+                                <div class="h-px bg-slate-800 flex-1"></div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                ${CASES.map(renderCaseCard).join('')}
+                            </div>
+                        </div>
+
+                        <footer class="text-center text-slate-600 mt-20 pb-8 text-sm">
+                            <p>Made with 💜 and pure Java logic by Shashwat</p>
+                        </footer>
+                    </div>
+                `;
+            }
+        };
+
+        // Inject Evidence Component flag manually for the specific case
+        CASES.find(c => c.id === 'case-gatekeeping').evidenceComponent = true;
+
+        // Init
+        renderApp();
+    </script>
+</body>
+</html>

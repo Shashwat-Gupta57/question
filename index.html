@@ -16,22 +16,29 @@
         .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Custom scrollbar for textareas */
-        textarea::-webkit-scrollbar { width: 8px; }
-        textarea::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-        textarea::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+        /* Chat Scrollbar */
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        .chat-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
     </style>
     <script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
+    {
+      "imports": {
+        "@google/genai": "https://esm.sh/@google/genai"
+      }
+    }
+    </script>
 </head>
 <body class="bg-slate-950 text-slate-100 antialiased selection:bg-rose-500 selection:text-white overflow-x-hidden">
 
@@ -48,11 +55,81 @@
 
     <script type="module">
         import { GoogleGenAI, Type } from "@google/genai";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, set, push, child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-        // --- CONFIGURATION ---
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBIyIXYNvVhJnSK58rB29K9n7SNnbaoqnc",
+            authDomain: "proposal-apoorva-sarvagy.firebaseapp.com",
+            databaseURL: "https://proposal-apoorva-sarvagy-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "proposal-apoorva-sarvagy",
+            storageBucket: "proposal-apoorva-sarvagy.firebasestorage.app",
+            messagingSenderId: "794226715688",
+            appId: "1:794226715688:web:284222db7af709b2cd591d",
+            measurementId: "G-BZ4R12MR9T"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Generate Session ID
+        const getISTString = () => {
+            const date = new Date();
+            return date.toLocaleString('en-GB', { 
+                timeZone: 'Asia/Kolkata', 
+                year: 'numeric', month: '2-digit', day: '2-digit', 
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
+            }).replace(/[/:, ]/g, '_');
+        };
+        
+        const SESSION_ID = `session_${getISTString()}`;
+        const sessionRef = ref(db, `question sites sessions/${SESSION_ID}`);
+
+        // Logger Function
+        const actionCounters = {}; 
+
+        const logAction = (action, payload) => {
+            try {
+                let keyBase = action;
+                // Prepend Case ID if available
+                if (payload && payload.caseId) {
+                    const simpleCaseName = payload.caseId.replace('case-', '').toUpperCase();
+                    keyBase = `${simpleCaseName}_${action}`;
+                }
+
+                // Handle Indexing
+                if (!actionCounters[keyBase]) {
+                    actionCounters[keyBase] = 1;
+                } else {
+                    actionCounters[keyBase]++;
+                }
+                const count = actionCounters[keyBase];
+                const finalKey = count === 1 ? keyBase : `${keyBase}_${count}`;
+
+                const logRef = child(sessionRef, `logs/${finalKey}`);
+                set(logRef, {
+                    timestamp: new Date().toISOString(),
+                    action: action,
+                    details: payload
+                });
+            } catch (err) {
+                console.error("Logging failed:", err);
+            }
+        };
+
+        logAction("SESSION_START", {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            screenSize: `${window.innerWidth}x${window.innerHeight}`
+        });
+
+        // --- GEMINI CONFIG ---
         const API_KEY = "AIzaSyB058A0BQW4PRu0_Bp9q4rQEZvAIXB6zHI"; 
         const ai = new GoogleGenAI({ apiKey: API_KEY });
-        const MODEL_ID = 'gemini-3-flash-preview'; // Updated to valid model
+        const MODEL_ID = 'gemini-3-flash-preview';
 
         // --- ICONS ---
         const Icons = {
@@ -61,7 +138,8 @@
             Phone: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
             Instagram: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>`,
             Question: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,
-            Gavel: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>`
+            Gavel: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>`,
+            Send: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`
         };
 
         // --- DATA ---
@@ -73,7 +151,7 @@
             rank: "#4-5 (Almost Top)",
             details: ["Software Dev (Java)", "2.8K+ LinkedIn Followers", "23+ Certifications", "5★ HackerRank (Java)", "Movie Buff 🎬"],
             highlight: "Developed Prod-Level Apps 💻",
-            image: "https://picsum.photos/seed/shashwat/200/200"
+            image: "https://picsum.photos/seed/shashwat/200/200" 
         };
 
         const apoorvaStats = {
@@ -93,47 +171,59 @@
                 title: 'The Gatekeeping Scandal',
                 description: "Shashwat has introduced 3-4 friends to Apoorva. Apoorva has introduced ZERO friends to Shashwat. She even hides her sister. Why is she gatekeeping her social circle?",
                 severity: 'CRITICAL',
-                context: "The user (Shashwat) is upset because he introduces his bestie (Apoorva) to everyone, but she hides him from her friends and even her sister. They've only met once due to different schools, but talk constantly on Instagram. Apoorva is a topper and manipulates situations."
+                context: "The user (Shashwat) is upset because he introduces his bestie (Apoorva) to everyone, but she hides him from her friends and even her sister. They've only met once due to different schools, but talk constantly on Instagram. Apoorva is a topper and manipulates situations.",
+                opener: "The prosecution calls Apoorva Maurya to the stand. The charge is Social Gatekeeping. You've met Shashwat's friends, yet his existence remains a secret to yours. Explain yourself."
             },
             {
                 id: 'case-insta-fraud',
                 title: 'The Instagram ID Fraud',
                 description: "Breach of Contract: We agreed to a mutual exchange of Instagram IDs. She tried to avoid it, and when she finally gave it, she changed the password mid-way to lock me out.",
                 severity: 'HIGH',
-                context: "Shashwat and Apoorva agreed to swap Instagram logins. Shashwat honored the deal. Apoorva hesitated, then gave the ID, but stealthily changed the password mid-way to revoke access. This is deceptive behavior."
+                context: "Shashwat and Apoorva agreed to swap Instagram logins. Shashwat honored the deal. Apoorva hesitated, then gave the ID, but stealthily changed the password mid-way to revoke access. This is deceptive behavior.",
+                opener: "We are here to discuss the Instagram Treaty. You provided credentials and then revoked access via a password change. Is this how you honor a contract?"
             },
             {
                 id: 'case-privacy-breach',
                 title: 'The Spoiler Surveillance',
                 description: "Violation of Privacy: She reads my DMs with Rishika (another friend) and ruins her own surprises because I send drafts to Rishika for review first. This is an offense to my privacy.",
                 severity: 'HIGH',
-                context: "Shashwat plans surprises for Apoorva and sends drafts to their mutual friend Rishika for review. Apoorva snoops into Shashwat's DMs with Rishika, reads about the surprise, and ruins the moment. This violates Shashwat's privacy rights."
+                context: "Shashwat plans surprises for Apoorva and sends drafts to their mutual friend Rishika for review. Apoorva snoops into Shashwat's DMs with Rishika, reads about the surprise, and ruins the moment. This violates Shashwat's privacy rights.",
+                opener: "You stand accused of spoiling your own surprises by snooping in private DMs between Shashwat and Rishika. Why do you hate joy?"
             },
             {
                 id: 'case-manipulation',
                 title: 'The Puppet Master',
                 description: "Psychological Manipulation: She manipulates me into doing things I don't want to—like giving up my ID or stopping my 'dalal harkate' (matchmaking) between her and Sarvagy.",
                 severity: 'CRITICAL',
-                context: "Apoorva uses her 10/10 acting skills to manipulate Shashwat. She forces him to give her his ID against his will and stops him from playfully matchmaking ('dalal harkate') her with their friend Sarvagy. Shashwat feels regretful and sad after being manipulated."
+                context: "Apoorva uses her 10/10 acting skills to manipulate Shashwat. She forces him to give her his ID against his will and stops him from playfully matchmaking ('dalal harkate') her with their friend Sarvagy. Shashwat feels regretful and sad after being manipulated.",
+                opener: "The plaintiff claims you use 10/10 acting skills to force his hand—specifically regarding his ID and his matchmaking efforts with Sarvagy. How do you plead?"
             },
             {
                 id: 'case-underwhelming-reaction',
                 title: 'The Appreciation Deficit',
                 description: "Emotional Damage: I spend 10-20 hours coding dedicated websites for her. Her reaction? A dry 'good' or 'cute'. This is insufficient compensation for the hard work.",
                 severity: 'MEDIUM',
-                context: "Shashwat is a developer who spends 10-20 hours building custom websites for Apoorva. Apoorva, being non-technical, gives very dry reactions like 'it's good' or 'cute', which hurts Shashwat's feelings as he expects more enthusiasm for his hard work."
+                context: "Shashwat is a developer who spends 10-20 hours building custom websites for Apoorva. Apoorva, being non-technical, gives very dry reactions like 'it's good' or 'cute', which hurts Shashwat's feelings as he expects more enthusiasm for his hard work.",
+                opener: "The plaintiff spent 20 hours coding a website for you. Your response was a single word: 'Cute'. Do you have any idea how much caffeine went into that code?"
             },
             {
                 id: 'case-physical-assault',
                 title: 'The Battery Charge',
                 description: "Physical Violence: She beats me whenever we meet. On our first and only meetup, she hit me 40+ times. I do not consent to this violence.",
                 severity: 'HIGH',
-                context: "Apoorva is physically aggressive. When they met for the first time, she hit/beat Shashwat 40+ times playfully but painfully. Shashwat hates this and wants it to stop."
+                context: "Apoorva is physically aggressive. When they met for the first time, she hit/beat Shashwat 40+ times playfully but painfully. Shashwat hates this and wants it to stop.",
+                opener: "Exhibit A: Bruises. You struck the plaintiff 40+ times during a single meeting. Is this affection or assault?"
             }
         ];
 
         // --- STATE ---
-        let activeCaseId = null;
+        let currentSession = {
+            activeCaseId: null,
+            chatHistory: [], // { role: 'prosecutor' | 'defendant', text: string }
+            credibility: 100, // 0 to 100
+            status: 'OPEN', // OPEN, GUILTY, ACQUITTED
+            isProcessing: false
+        };
 
         // --- COMPONENTS ---
         
@@ -208,156 +298,263 @@
             `;
         };
 
-        const renderEvidenceLog = () => `
-            <div class="w-full max-w-4xl mx-auto mb-16 animate-fade-in">
-                <h2 class="text-3xl font-bold text-center mb-12 text-slate-100 flex items-center justify-center gap-3">
-                    <span class="w-8 h-8 text-yellow-400">${Icons.Question}</span>
-                    The Friendship Audit Log
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="glass-panel p-6 rounded-xl border-l-4 border-blue-500">
-                        <h3 class="text-xl font-bold text-blue-400 mb-4">Shashwat's Contributions</h3>
-                        <ul class="space-y-4">
-                            <li class="flex items-center gap-3"><div class="bg-blue-500/20 p-2 rounded-full text-blue-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Introduced Apoorva to <strong class="text-white">3-4 friends</strong></span></li>
-                            <li class="flex items-center gap-3"><div class="bg-blue-500/20 p-2 rounded-full text-blue-300 w-9 h-9 flex items-center justify-center">${Icons.Instagram}</div><span class="text-slate-300">Shares memes consistently</span></li>
-                        </ul>
-                    </div>
-                    <div class="glass-panel p-6 rounded-xl border-l-4 border-rose-500 relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-10 w-24 h-24">${Icons.Users}</div>
-                        <h3 class="text-xl font-bold text-rose-400 mb-4">Apoorva's "Gatekeeping"</h3>
-                        <ul class="space-y-4">
-                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Introduced Shashwat to: <strong class="text-rose-500">NO ONE</strong></span></li>
-                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Users}</div><span class="text-slate-300">Status of Sister: <strong class="text-rose-500">CLASSIFIED</strong></span></li>
-                            <li class="flex items-center gap-3"><div class="bg-rose-500/20 p-2 rounded-full text-rose-300 w-9 h-9 flex items-center justify-center">${Icons.Phone}</div><span class="text-slate-300">Meetings: Only once</span></li>
-                        </ul>
+        const renderChatMessage = (msg, idx) => {
+            const isProsecutor = msg.role === 'prosecutor';
+            return `
+                <div class="flex w-full mb-6 animate-fade-in ${isProsecutor ? 'justify-start' : 'justify-end'}">
+                    <div class="flex max-w-[85%] md:max-w-[70%] gap-3 ${isProsecutor ? 'flex-row' : 'flex-row-reverse'}">
+                        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 border-slate-700 bg-slate-800 text-lg">
+                            ${isProsecutor ? '⚖️' : '😈'}
+                        </div>
+                        <div class="flex flex-col ${isProsecutor ? 'items-start' : 'items-end'}">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-1 px-1">
+                                ${isProsecutor ? 'Prosecution (AI)' : 'Defense (Apoorva)'}
+                            </span>
+                            <div class="px-5 py-3 rounded-2xl text-sm md:text-base leading-relaxed ${
+                                isProsecutor 
+                                    ? 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700' 
+                                    : 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-lg shadow-purple-500/20'
+                            }">
+                                ${msg.text}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        };
 
-        // --- RENDER FUNCTIONS ---
+        // --- LOGIC ---
         
         window.setActiveCase = (id) => {
-            activeCaseId = id;
+            if (id) {
+                const c = CASES.find(x => x.id === id);
+                currentSession = {
+                    activeCaseId: id,
+                    chatHistory: [{ role: 'prosecutor', text: c.opener || "State your defense." }],
+                    credibility: 100,
+                    status: 'OPEN',
+                    isProcessing: false
+                };
+                logAction("VIEW_CASE", { caseId: id, caseTitle: c ? c.title : 'Unknown' });
+            } else {
+                currentSession.activeCaseId = null;
+                logAction("NAVIGATE_HOME", {});
+            }
             renderApp();
         };
 
-        window.submitExcuse = async () => {
-            const excuse = document.getElementById('excuseInput').value;
-            const btn = document.getElementById('submitBtn');
-            const resultArea = document.getElementById('resultArea');
+        window.handleKeyPress = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                window.submitDefense();
+            }
+        };
+
+        window.submitDefense = async () => {
+            const input = document.getElementById('chatInput');
+            const defenseText = input.value.trim();
+            const { activeCaseId, isProcessing, status } = currentSession;
             const activeCase = CASES.find(c => c.id === activeCaseId);
 
-            if (!excuse.trim()) return;
+            if (!defenseText || isProcessing || status !== 'OPEN') return;
 
-            btn.disabled = true;
-            btn.innerHTML = 'Deliberating...';
-            resultArea.innerHTML = '';
+            // 1. Update User State
+            currentSession.isProcessing = true;
+            currentSession.chatHistory.push({ role: 'defendant', text: defenseText });
+            input.value = '';
+            renderApp();
+            scrollToBottom();
+
+            // 2. Log User Turn
+            logAction("DEFENSE_TURN", { caseId: activeCaseId, text: defenseText });
 
             try {
+                // 3. AI Turn
                 const systemInstruction = `
-                    You are the Supreme Judge of Friendship. 
-                    Plaintiff: Shashwat Gupta (Java Dev, PCM+CS, 2.8K+ LinkedIn, 5* HackerRank, 5'8).
-                    Defendant: Apoorva Maurya (School Topper, PCM+Biotech, Horse Rider, 10/10 Acting Skills, 5'5).
-                    CASE CONTEXT: ${activeCase.context}
-                    Apoorva has just provided an excuse. Analyze it. She is manipulative.
+                    You are a Text-Based Roleplay Engine for a "Bestie Court".
+                    
+                    **Characters**:
+                    1. **Prosecutor (You)**: Representing Shashwat (Plaintiff). Witty, sharp, aggressive but funny. Uses facts from the context.
+                    2. **Judge (You)**: Invisible logic. Decides credibility scores.
+                    3. **Defendant**: Apoorva (User). She is smart but manipulative.
+                    
+                    **Context**:
+                    Plaintiff: Shashwat (Dev, Movie Lover).
+                    Defendant: Apoorva (Topper, Non-tech, "Gatekeeper").
+                    Case: "${activeCase.context}"
+                    
+                    **Rules**:
+                    - Analyze the Defendant's latest reply.
+                    - If excuse is weak/vague -> Decrease Credibility (-15 to -25).
+                    - If excuse is decent -> Decrease slightly or Keep same (-5 to 0).
+                    - If excuse is "I am sorry" or honest -> Maybe increase (+5).
+                    - If Credibility <= 0 -> Verdict: GUILTY.
+                    - If Defendant clearly wins (rare) -> Verdict: ACQUITTED.
+                    
+                    **Output JSON ONLY**:
+                    {
+                        "prosecutorRebuttal": "Your witty response to her excuse.",
+                        "credibilityChange": integer (e.g. -10, 0, +5),
+                        "isCaseClosed": boolean,
+                        "verdict": "GUILTY" | "ACQUITTED" | null
+                    }
                 `;
+
+                // Provide last 5 turns for context
+                const historyContext = currentSession.chatHistory.slice(-5).map(m => `${m.role}: ${m.text}`).join('\n');
 
                 const response = await ai.models.generateContent({
                     model: MODEL_ID,
-                    contents: `Apoorva's Statement: "${excuse}"`,
+                    contents: `Chat History:\n${historyContext}\n\nDefendant's Last Reply: "${defenseText}"`,
                     config: {
                         systemInstruction: systemInstruction,
                         responseMimeType: "application/json",
                         responseSchema: {
                             type: Type.OBJECT,
                             properties: {
-                                verdict: { type: Type.STRING, enum: ["VALID", "SUSPICIOUS", "GUILTY"] },
-                                analysis: { type: Type.STRING },
-                                wittyComeback: { type: Type.STRING }
+                                prosecutorRebuttal: { type: Type.STRING },
+                                credibilityChange: { type: Type.INTEGER },
+                                isCaseClosed: { type: Type.BOOLEAN },
+                                verdict: { type: Type.STRING, nullable: true }
                             },
-                            required: ["verdict", "analysis", "wittyComeback"]
+                            required: ["prosecutorRebuttal", "credibilityChange", "isCaseClosed"]
                         }
                     }
                 });
 
                 const data = JSON.parse(response.text);
-                
-                const colorClass = data.verdict === 'VALID' ? 'border-green-500 bg-green-900/20' : 
-                                   data.verdict === 'SUSPICIOUS' ? 'border-yellow-500 bg-yellow-900/20' : 
-                                   'border-red-500 bg-red-900/20';
-                
-                const badgeClass = data.verdict === 'VALID' ? 'bg-green-500 text-black' : 
-                                   data.verdict === 'SUSPICIOUS' ? 'bg-yellow-500 text-black' : 
-                                   'bg-red-500 text-white';
 
-                resultArea.innerHTML = `
-                    <div class="animate-fade-in border-l-4 p-6 rounded-r-xl shadow-2xl ${colorClass} mt-8">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-xl font-bold uppercase tracking-widest text-white">Verdict</h3>
-                            <span class="px-3 py-1 rounded font-bold text-sm ${badgeClass}">${data.verdict}</span>
-                        </div>
-                        <p class="text-lg text-slate-200 mb-6 italic">"${data.analysis}"</p>
-                        <div class="bg-slate-950/50 p-4 rounded-lg">
-                            <p class="text-xs text-slate-500 uppercase font-bold mb-2">Recommended Reply:</p>
-                            <p class="text-purple-300 font-mono">"${data.wittyComeback}"</p>
-                        </div>
-                    </div>
-                `;
+                // 4. Process AI Response
+                currentSession.credibility = Math.max(0, Math.min(100, currentSession.credibility + data.credibilityChange));
+                currentSession.chatHistory.push({ role: 'prosecutor', text: data.prosecutorRebuttal });
+
+                logAction("PROSECUTOR_TURN", { 
+                    caseId: activeCaseId, 
+                    rebuttal: data.prosecutorRebuttal, 
+                    credibilityChange: data.credibilityChange,
+                    newCredibility: currentSession.credibility
+                });
+
+                if (currentSession.credibility <= 0) {
+                    currentSession.status = 'GUILTY';
+                    currentSession.isCaseClosed = true;
+                    logAction("FINAL_VERDICT", { caseId: activeCaseId, result: 'GUILTY' });
+                } else if (data.isCaseClosed) {
+                    currentSession.status = data.verdict || 'GUILTY';
+                    logAction("FINAL_VERDICT", { caseId: activeCaseId, result: currentSession.status });
+                }
 
             } catch (e) {
                 console.error(e);
-                alert("The AI Judge is taking a recess (Error calling API). Check console for details.");
+                currentSession.chatHistory.push({ role: 'prosecutor', text: "Objection! The court stenographer missed that. (API Error)" });
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = 'Submit Defense';
+                currentSession.isProcessing = false;
+                renderApp();
+                scrollToBottom();
             }
+        };
+
+        const scrollToBottom = () => {
+            const container = document.getElementById('chatContainer');
+            if (container) container.scrollTop = container.scrollHeight;
         };
 
         const renderApp = () => {
             const root = document.getElementById('root');
             
-            if (activeCaseId) {
-                // CASE VIEW
-                const c = CASES.find(x => x.id === activeCaseId);
-                const colorMap = {
-                    CRITICAL: 'bg-red-500/20 text-red-400',
-                    HIGH: 'bg-orange-500/20 text-orange-400',
-                    MEDIUM: 'bg-yellow-500/20 text-yellow-400',
-                    LOW: 'bg-blue-500/20 text-blue-400'
-                };
+            if (currentSession.activeCaseId) {
+                const c = CASES.find(x => x.id === currentSession.activeCaseId);
+                const isGuilty = currentSession.status === 'GUILTY';
+                const isAcquitted = currentSession.status === 'ACQUITTED';
+                const isClosed = isGuilty || isAcquitted;
                 
+                // Credibility Color
+                let credColor = 'bg-green-500';
+                if (currentSession.credibility < 60) credColor = 'bg-yellow-500';
+                if (currentSession.credibility < 30) credColor = 'bg-red-500';
+
                 root.innerHTML = `
-                    <div class="animate-fade-in">
-                        <button onclick="window.setActiveCase(null)" class="mb-8 flex items-center gap-2 text-slate-400 hover:text-white transition-colors">← Back to Case Files</button>
-                        
-                        <div class="max-w-4xl mx-auto">
-                            <div class="border-b border-slate-800 pb-6 mb-8 text-center">
-                                <span class="inline-block px-3 py-1 rounded text-xs font-bold mb-3 uppercase tracking-wider ${colorMap[c.severity] || ''}">${c.severity} Priority Case</span>
-                                <h2 class="text-3xl md:text-5xl font-bold text-white mb-4">${c.title}</h2>
-                                <p class="text-slate-300 text-lg max-w-2xl mx-auto">${c.description}</p>
+                    <div class="h-[calc(100vh-6rem)] flex flex-col max-w-4xl mx-auto animate-fade-in relative">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-4 shrink-0">
+                            <button onclick="window.setActiveCase(null)" class="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm">
+                                <span class="text-xl">←</span> Exit Case
+                            </button>
+                            <div class="text-center">
+                                <h2 class="text-lg md:text-xl font-bold text-white leading-tight">${c.title}</h2>
+                                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Case #${c.id.split('-')[1].toUpperCase()}</p>
                             </div>
+                            <div class="w-20"></div> <!-- Spacer -->
+                        </div>
 
-                            ${c.evidenceComponent ? renderEvidenceLog() : ''}
-
-                            <!-- JUDGE BOT -->
-                            <div class="w-full max-w-2xl mx-auto mb-20 px-4">
-                                <div class="text-center mb-8">
-                                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/20 mb-4 animate-bounce text-purple-400">${Icons.Gavel}</div>
-                                    <h2 class="text-3xl font-bold text-white mb-2">The AI Judge</h2>
-                                    <p class="text-slate-400">Apoorva, provide your justification for this specific incident.</p>
+                        <!-- Credibility Bar -->
+                        <div class="mb-6 shrink-0 bg-slate-900/50 p-4 rounded-xl border border-white/5 backdrop-blur-sm">
+                            <div class="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                                <span class="text-slate-400">Defendant Credibility</span>
+                                <span class="${credColor.replace('bg-', 'text-')}">${currentSession.credibility}%</span>
+                            </div>
+                            <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                                <div class="h-full ${credColor} transition-all duration-700 ease-out relative" style="width: ${currentSession.credibility}%">
+                                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
                                 </div>
-                                <div class="glass-panel p-1 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900">
-                                    <textarea id="excuseInput" placeholder="Type your excuse here..." class="w-full h-32 bg-slate-950/50 text-white p-4 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder:text-slate-600 border-none"></textarea>
-                                    <div class="p-2 flex justify-end">
-                                        <button id="submitBtn" onclick="window.submitExcuse()" class="px-6 py-2 rounded-lg font-bold text-white bg-purple-600 hover:bg-purple-500 shadow-lg shadow-purple-500/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">Submit Defense</button>
-                                    </div>
-                                </div>
-                                <div id="resultArea"></div>
                             </div>
                         </div>
+
+                        <!-- Chat Area -->
+                        <div id="chatContainer" class="chat-container flex-1 overflow-y-auto px-2 pb-4 scroll-smooth">
+                            ${currentSession.chatHistory.map(renderChatMessage).join('')}
+                            
+                            ${currentSession.isProcessing ? `
+                                <div class="flex w-full mb-6 justify-start animate-fade-in">
+                                    <div class="flex max-w-[70%] gap-3 items-center">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center border-2 border-slate-700 bg-slate-800 text-sm">⚖️</div>
+                                        <div class="flex space-x-1 bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700">
+                                            <div class="w-2 h-2 bg-slate-500 rounded-full typing-dot"></div>
+                                            <div class="w-2 h-2 bg-slate-500 rounded-full typing-dot"></div>
+                                            <div class="w-2 h-2 bg-slate-500 rounded-full typing-dot"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            ${isClosed ? `
+                                <div class="my-8 p-8 rounded-xl text-center border-2 animate-fade-in ${isGuilty ? 'bg-red-900/20 border-red-500' : 'bg-green-900/20 border-green-500'}">
+                                    <div class="text-4xl mb-4">${isGuilty ? '🧑‍⚖️' : '🕊️'}</div>
+                                    <h3 class="text-3xl font-bold uppercase mb-2 ${isGuilty ? 'text-red-500' : 'text-green-500'}">
+                                        ${isGuilty ? 'GUILTY AS CHARGED' : 'CASE DISMISSED'}
+                                    </h3>
+                                    <p class="text-slate-300 max-w-md mx-auto mb-6">
+                                        ${isGuilty 
+                                            ? "The defendant has failed to provide sufficient justification. The court sentences you to buy Shashwat food immediately." 
+                                            : "Against all odds, the defendant has proven their case. You are free to go."}
+                                    </p>
+                                    <button onclick="window.setActiveCase(null)" class="px-6 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold transition-all">Return to Docket</button>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Input Area -->
+                        ${!isClosed ? `
+                            <div class="mt-4 shrink-0 relative">
+                                <input type="text" id="chatInput" 
+                                    onkeypress="window.handleKeyPress(event)"
+                                    class="w-full bg-slate-900/80 border border-slate-700 rounded-xl py-4 pl-5 pr-14 text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all shadow-lg backdrop-blur-md"
+                                    placeholder="Type your defense here..." 
+                                    ${currentSession.isProcessing ? 'disabled' : ''}
+                                    autocomplete="off"
+                                />
+                                <button onclick="window.submitDefense()" 
+                                    class="absolute right-2 top-2 p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                    ${Icons.Send}
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
+                
+                // Auto scroll on render
+                setTimeout(scrollToBottom, 100);
+
             } else {
                 // DASHBOARD VIEW
                 root.innerHTML = `
